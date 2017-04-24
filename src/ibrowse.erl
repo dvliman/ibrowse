@@ -54,6 +54,7 @@
 
 -module(ibrowse).
 -behaviour(gen_server).
+-compile([{parse_transform, lager_transform}]).
 %%--------------------------------------------------------------------
 %% Include files
 %%--------------------------------------------------------------------
