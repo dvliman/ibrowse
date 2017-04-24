@@ -114,6 +114,8 @@ send_req(Conn_Pid, Url, Headers, Method, Body, Options, Timeout) ->
         {'EXIT', {timeout, _}} ->
             {error, req_timedout};
         {'EXIT', {noproc, _}} ->
+            lager:error("dvliman: no worker:~p, pid:~p, url:~p, headers:~p, method:~p",
+                [Conn_Pid, Url, Headers, Method]),
             {error, connection_closed};
         Res ->
             Res
@@ -237,12 +239,18 @@ handle_info({stream_close, _Req_id}, State) ->
 handle_info({tcp_closed, _Sock}, State) ->
     do_trace("TCP connection closed by peer!~n", []),
     State_1 = State#state{proc_state = ?dead_proc_walking},
+
+    lager:error("dvliman: handle-sock-closed:~p, inact-timeout:~p", [tcp_closed, get_inac_timeout(State)]),
     handle_sock_closed(State_1, ?can_retry_pipelined_requests),
+
     delayed_stop_timer(),
     {noreply, State_1};
 handle_info({ssl_closed, _Sock}, State) ->
     do_trace("SSL connection closed by peer!~n", []),
     State_1 = State#state{proc_state = ?dead_proc_walking},
+
+    lager:error("dvliman: handle-sock-closed:~p, inact-timeout:~p", [ssl_closed, get_inac_timeout(State)]),
+
     handle_sock_closed(State_1, ?can_retry_pipelined_requests),
     delayed_stop_timer(),
     {noreply, State_1};
@@ -251,6 +259,9 @@ handle_info({tcp_error, _Sock, Reason}, State) ->
     do_trace("Error on connection to ~1000.p:~1000.p -> ~1000.p~n",
              [State#state.host, State#state.port, Reason]),
     State_1 = State#state{proc_state = ?dead_proc_walking},
+
+    lager:error("dvliman: handle-sock-closed:~p, inact-timeout:~p", [tcp_error, get_inac_timeout(State)]),
+
     handle_sock_closed(State_1, ?dont_retry_pipelined_requests),
     delayed_stop_timer(),
     {noreply, State_1};
@@ -258,7 +269,10 @@ handle_info({ssl_error, _Sock, Reason}, State) ->
     do_trace("Error on SSL connection to ~1000.p:~1000.p -> ~1000.p~n",
              [State#state.host, State#state.port, Reason]),
     State_1 = State#state{proc_state = ?dead_proc_walking},
+
+    lager:error("dvliman:~p, handle-sock-closed:~p, inact-timeout:~p", [ssl_error, get_inac_timeout(State)]),
     handle_sock_closed(State_1, ?dont_retry_pipelined_requests),
+
     delayed_stop_timer(),
     {noreply, State_1};
 
@@ -554,8 +568,10 @@ handle_sock_closed(#state{reply_buffer = Buf, reqs = Reqs, http_status_code = SC
         _ ->
             case Retry_state of
                 ?dont_retry_pipelined_requests ->
+                    lager:error("dvliman: dont-retry-pipelined, inact-timeout:~p", [get_inac_timeout(State)]),
                     ok = do_error_reply(State, connection_closed_no_retry);
                 ?can_retry_pipelined_requests ->
+                    lager:error("dvliman: can-retry-pipelined, inact-timeout:~p", [get_inac_timeout(State)]),
                     ok = do_error_reply(State, connection_closed)
             end,
             State

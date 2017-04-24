@@ -509,8 +509,11 @@ do_send_req(Conn_Pid, Parsed_url, Headers, Method, Body, Options, Timeout) ->
                         X == {send_failed,{error,closed}};
                         X == connection_closing;
                         ((X == connection_closed_no_retry) andalso ((Method == get) orelse (Method == head))) ->
+            lager:error("dvliman:worker X == connection_closed, caller get sel_conn_closed, timeout:~p, options:~p", [Timeout, Options]),
             {error, sel_conn_closed};
         {error, connection_closed_no_retry} ->
+            lager:error("dvliman: underlying worker send connection_closed_no_retry, caller get connection_closed, timeout:~p, options:~p",
+                [Timeout, Options]),
             {error, connection_closed};
         {error, {'EXIT', {noproc, _}}} ->
             {error, sel_conn_closed};
